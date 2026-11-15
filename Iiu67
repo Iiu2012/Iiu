@@ -1,0 +1,365 @@
+task.spawn(function()
+    task.wait(5)
+    pcall(function()
+        local rs = game:GetService("ReplicatedStorage")
+        local devv = rs:FindFirstChild("devv")
+        if devv then
+            local remoteStorage = devv:FindFirstChild("remoteStorage")
+            if remoteStorage then
+                local me = remoteStorage:FindFirstChild("makeExplosion")
+                if me then me:Destroy() end
+            end
+        end
+    end)
+end)
+
+local WindUI =  loadstring(game:HttpGet("https://raw.githubusercontent.com/gycgchgyfytdttr/shenqin/refs/heads/main/ui.lua"))()
+function createUI()
+    local Window = WindUI:CreateWindow({
+        Title = 'TeTraX',
+        Icon = 'rbxassetid://4483362748',
+        IconThemed = true,
+        Author = "v0.1.3.6",
+        Folder = 'TeTraX Farm',
+        Size = UDim2.fromOffset(762, 643),
+        Transparent = false,
+        Theme = getCfg("theme", "Dark"),
+        Resizable = true,
+        SideBarWidth = 210,
+        HideSearchBar = true,
+        ScrollBarEnabled = true,
+        User = { Enabled = true, Anonymous = false }
+    })
+    mainWindow = Window
+
+    Window:SetToggleKey(Enum.KeyCode.G, true)
+
+    Window:EditOpenButton({
+        Title = "TeTraX V2",
+        Icon = "rbxassetid://4483362748",
+        CornerRadius = UDim.new(0, 15),
+        StrokeThickness = 1,
+        Draggable = true,
+        OnlyMobile = false,
+    })
+
+    local BORDER_COLOR = ColorSequence.new({
+        ColorSequenceKeypoint.new(0.000, Color3.fromHex("FF0000")),
+        ColorSequenceKeypoint.new(0.166, Color3.fromHex("FF7F00")),
+        ColorSequenceKeypoint.new(0.333, Color3.fromHex("FFFF00")),
+        ColorSequenceKeypoint.new(0.500, Color3.fromHex("00FF00")),
+        ColorSequenceKeypoint.new(0.666, Color3.fromHex("00FFFF")),
+        ColorSequenceKeypoint.new(0.833, Color3.fromHex("0000FF")),
+        ColorSequenceKeypoint.new(0.950, Color3.fromHex("8B00FF")),
+        ColorSequenceKeypoint.new(1.000, Color3.fromHex("FF0000"))
+    })
+    local function createRainbowBorder(window)
+        local mainFrame = window.UIElements and window.UIElements.Main
+        if not mainFrame then return nil end
+        local existingStroke = mainFrame:FindFirstChild("RainbowStroke")
+        if existingStroke then existingStroke:Destroy() end
+        if not mainFrame:FindFirstChildOfClass("UICorner") then
+            local corner = Instance.new("UICorner")
+            corner.CornerRadius = UDim.new(0, 16)
+            corner.Parent = mainFrame
+        end
+        local rainbowStroke = Instance.new("UIStroke")
+        rainbowStroke.Name = "RainbowStroke"
+        rainbowStroke.Thickness = 2
+        rainbowStroke.Color = Color3.new(1, 1, 1)
+        rainbowStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        rainbowStroke.LineJoinMode = Enum.LineJoinMode.Round
+        rainbowStroke.Parent = mainFrame
+        local glowEffect = Instance.new("UIGradient")
+        glowEffect.Name = "GlowEffect"
+        glowEffect.Color = BORDER_COLOR
+        glowEffect.Rotation = 0
+        glowEffect.Parent = rainbowStroke
+        return rainbowStroke
+    end
+    local function startBorderAnimation(window, speed)
+        local mainFrame = window.UIElements and window.UIElements.Main
+        if not mainFrame then return nil end
+        local rainbowStroke = mainFrame:FindFirstChild("RainbowStroke")
+        if not rainbowStroke then return nil end
+        local glowEffect = rainbowStroke:FindFirstChild("GlowEffect")
+        if not glowEffect then return nil end
+        return game:GetService("RunService").Heartbeat:Connect(function()
+            if not rainbowStroke or rainbowStroke.Parent == nil then return end
+            glowEffect.Rotation = (tick() * speed * 60) % 360
+        end)
+    end
+
+    local borderAnimation
+    local borderEnabled   = getCfg("border", true)
+    local animationSpeed  = getCfg("borderSpeed", 5)
+    local rainbowStroke   = createRainbowBorder(Window)
+    if rainbowStroke and borderEnabled then borderAnimation = startBorderAnimation(Window, animationSpeed) end
+    if rainbowStroke then rainbowStroke.Enabled = borderEnabled end
+
+    local Tabs = {
+        Ohio       = Window:Tab({ Title = '主要',     Icon = 'crosshair' }),
+        Player     = Window:Tab({ Title = '玩家',     Icon = 'user' }),
+        Combat     = Window:Tab({ Title = '战斗',     Icon = 'swords' }),
+        Visual     = Window:Tab({ Title = '视觉',     Icon = 'eye' }),
+        Money      = Window:Tab({ Title = '金钱',     Icon = 'dollar-sign' }),
+        UISettings = Window:Tab({ Title = 'UI 调试',  Icon = 'settings' }),
+    }
+
+    Window:CreateTopbarButton("settings-btn", "settings", function()
+        pcall(function() Tabs.UISettings:Select() end)
+    end, 990)
+
+    local function getPlayerListValues()
+        local names = {"全体"}
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer then table.insert(names, player.Name) end
+        end
+        return names
+    end
+
+    local autoKillToggle, tpPlayerToggle, autoStompToggle, punchTypeDropdown
+
+    do
+        local MoveSec = Tabs.Ohio:Section({ Title = '移动', Opened = true, Collapsible = false })
+        MoveSec:Slider({
+            Title = '飞行速度',
+            Value = { Min = 10, Max = 1000, Default = getCfg("flySpeed", 50) },
+            Callback = function(v) flySpeed = v; setCfg("flySpeed", v) end
+        })
+        local flyToggle
+        flyToggle = MoveSec:Toggle({
+            Title = '飞行模式',
+            Value = getCfg("fly", false),
+            Callback = function(s)
+                setCfg("fly", s)
+                if s then startFly() else stopFly() end
+            end
+        })
+        MoveSec:Keybind({
+            Title = '飞行快捷键',
+            Value = getCfg("flyKey", 'F'),
+            Callback = function()
+                local newState = not flying
+                if newState then startFly() else stopFly() end
+                setCfg("fly", newState)
+                pcall(function() flyToggle:SetValue(newState) end)
+            end
+        })
+        MoveSec:Slider({
+            Title = '移动速度',
+            Value = { Min = 1, Max = 1000, Default = getCfg("moveSpeed", 10) },
+            Callback = function(v) currentSpeed = v; setCfg("moveSpeed", v) end
+        })
+        MoveSec:Toggle({
+            Title = '加速', Value = getCfg("tpwalk", false),
+            Callback = function(s) setCfg("tpwalk", s); if s then startTPWalk() else stopTPWalk() end end
+        })
+
+        local RoleSec = Tabs.Ohio:Section({ Title = '角色', Opened = true, Collapsible = false })
+        RoleSec:Toggle({ Title = '连跳', Value = getCfg("bunnyhop", false), Callback = function(s) setCfg("bunnyhop", s); toggleBunnyHop(s) end })
+        RoleSec:Toggle({ Title = '穿墙', Value = getCfg("noclip", false), Callback = function(s) setCfg("noclip", s); toggleNoClip(s) end })
+        RoleSec:Toggle({ Title = '防虚空掉落', Value = getCfg("antivoid", false), Callback = function(s) setCfg("antivoid", s); toggleAntiVoid(s) end })
+
+        local AssistSec = Tabs.Ohio:Section({ Title = '辅助', Opened = true, Collapsible = false })
+        AssistSec:Toggle({
+            Title = '扩大视野', Value = getCfg("fov", false),
+            Callback = function(v)
+                setCfg("fov", v)
+                if v then
+                    if not fovConnection then
+                        fovConnection = RunService.Heartbeat:Connect(function()
+                            workspace.CurrentCamera.FieldOfView = 120
+                        end)
+                    end
+                else
+                    if fovConnection then fovConnection:Disconnect(); fovConnection = nil end
+                end
+            end
+        })
+        AssistSec:Toggle({
+            Title = '快速互动', Value = getCfg("quickinteract", false),
+            Callback = function(state)
+                setCfg("quickinteract", state)
+                if state then
+                    game.ProximityPromptService.PromptButtonHoldBegan:Connect(function(prompt)
+                        prompt.HoldDuration = 0
+                    end)
+                end
+            end
+        })
+        AssistSec:Toggle({
+            Title = '反挂机',
+            Value = getCfg("antiidle", true),
+            Callback = function(v)
+                antiIdleEnabled = v
+                setCfg("antiidle", v)
+            end
+        })
+    end
+
+    do
+        local BTSec = Tabs.Combat:Section({ Title = '子弹追踪设置', Opened = true, Collapsible = false })
+        BTSec:Toggle({ Title = '启用子弹追踪', Value = getCfg("bt", false), Callback = function(s) SilentAimSettings.Enabled = s; setCfg("bt", s) end })
+        BTSec:Toggle({ Title = '穿墙', Value = getCfg("btWallbang", true), Callback = function(s) SilentAimSettings.Wallbang = s; setCfg("btWallbang", s) end })
+        BTSec:Dropdown({
+            Title = '目标部位',
+            Values = {'Head', 'HumanoidRootPart', 'Random'},
+            Value = getCfg("btPart", "Head"),
+            Callback = function(v) SilentAimSettings.TargetPart = v; setCfg("btPart", v) end
+        })
+        BTSec:Slider({
+            Title = '最大距离',
+            Value = { Min = 10, Max = 2000, Default = getCfg("btMaxDist", 500) },
+            Callback = function(v) SilentAimSettings.MaxDistance = v; setCfg("btMaxDist", v) end
+        })
+        BTSec:Slider({
+            Title = 'FOV圈半径',
+            Value = { Min = 10, Max = 1000, Default = getCfg("btFov", 130) },
+            Callback = function(v)
+                SilentAimSettings.FOVRadius = v
+                setCfg("btFov", v)
+                FOVCircleFrame.Size = UDim2.fromOffset(v * 2, v * 2)
+            end
+        })
+        BTSec:Toggle({
+            Title = '显示FOV圈', Value = getCfg("btFovShow", false),
+            Callback = function(s)
+                SilentAimSettings.FOVVisible = s
+                setCfg("btFovShow", s)
+                FOVCircleGui.Enabled = s
+            end
+        })
+    end
+
+    do
+        local AutoGroup = Tabs.Money:Section({ Title = '自动功能', Opened = true, Collapsible = true })
+        AutoGroup:Dropdown({
+            Title = '农场模式',
+            Values = {'AFK', 'Normal'},
+            Value = getCfg("farmMode", "Normal"),
+            Callback = function(v) currentMode = v; setCfg("farmMode", v); updateIdleConnection() end
+        })
+        AutoGroup:Dropdown({
+            Title = '挂机位置',
+            Values = {'TeTraX', '宿傩', '位置1', '位置2', '位置3', '位置4', '位置5', '位置6', '位置7', '位置8', '位置9', '位置10', '位置11'},
+            Value = getCfg("idlePos", 'TeTraX'),
+            Callback = function(v) currentIdleName = v; setCfg("idlePos", v); updateIdleConnection() end
+        })
+        AutoGroup:Divider()
+        AutoGroup:Toggle({ Title = '自动摧毁ATM', Value = getCfg("atm", false), Callback = function(s) FromATM = s; setCfg("atm", s) end })
+        AutoGroup:Toggle({ Title = '自动偷盗银行', Value = getCfg("bank", false), Callback = function(s) FromBank = s; setCfg("bank", s) end })
+        AutoGroup:Toggle({ Title = '自动收银机', Value = getCfg("cashreg", false), Callback = function(s) autoCashRegister = s; setCfg("cashreg", s) end })
+        AutoGroup:Toggle({ Title = '自动炸珠宝店', Value = getCfg("gemrubble", false), Callback = function(s) autoGemRubble = s; setCfg("gemrubble", s); if not s then gemRubbleCooldown = 0 end end })
+        AutoGroup:Toggle({ Title = '自动收集装甲车现金', Value = getCfg("truckcash", false), Callback = function(s) autoCollectTruckCash = s; setCfg("truckcash", s); if s then startTruckCash() end end })
+        AutoGroup:Toggle({ Title = '自动珠宝店', Value = getCfg("autozbd", false), Callback = function(s) autozbd = s; setCfg("autozbd", s) end })
+        AutoGroup:Toggle({ Title = '自动捡材料', Value = getCfg("pickcomp", false), Callback = function(s) autoPickComponentEnabled = s; setCfg("pickcomp", s) end })
+        AutoGroup:Toggle({ Title = '自动老虎机', Value = getCfg("slot", false), Callback = function(s) autoSlotMachine = s; setCfg("slot", s); if s then startSlotMachine() end end })
+        AutoGroup:Toggle({ Title = '自动挖海盗宝藏', Value = getCfg("treasure", false), Callback = function(s) treasureFarmEnabled = s; setCfg("treasure", s) end })
+        AutoGroup:Toggle({ Title = '自动打开保险', Value = getCfg("autobx", false), Callback = function(s) autobx = s; setCfg("autobx", s) end })
+        AutoGroup:Toggle({ Title = '开锁光环', Value = getCfg("unlock", false), Callback = function(s) autoUnlockEnabled = s; setCfg("unlock", s); if s then startUnlockAura() else stopUnlockAura() end end })
+        AutoGroup:Toggle({ Title = '打扫光环', Value = getCfg("clean", false), Callback = function(s) autoCleanEnabled = s; setCfg("clean", s) end })
+        AutoGroup:Toggle({ Title = '自动领取空投', Value = getCfg("airdrop", false), Callback = function(s) autoAirdropEnabled = s; setCfg("airdrop", s) end })
+        AutoGroup:Toggle({ Title = '自动工作', Value = getCfg("work", false), Callback = function(s) autoWorkEnabled = s; setCfg("work", s); updateIdleConnection() end })
+        AutoGroup:Toggle({ Title = '自动传回家存宝石', Value = getCfg("storegems_tp", false), Callback = function(s) autoTeleportStoreGemsEnabled = s; setCfg("storegems_tp", s) end })
+        AutoGroup:Toggle({ Title = '自动租房', Value = getCfg("rent", false), Callback = function(s) autoRentHouseEnabled = s; setCfg("rent", s) end })
+        AutoGroup:Toggle({ Title = '现金光环', Value = getCfg("cashaura", false), Callback = function(s) cashAuraEnabled = s; setCfg("cashaura", s); if s then startCashAura() else stopCashAura() end end })
+        AutoGroup:Toggle({ Title = '物品光环', Value = getCfg("itemaura", false), Callback = function(s) itemAuraEnabled = s; setCfg("itemaura", s); if s then startItemAura() else stopItemAura() end end })
+        AutoGroup:Toggle({ Title = '自动售卖全部物品', Value = getCfg("sell", false), Callback = function(Value)
+            autoSellEnabled = Value
+            setCfg("sell", Value)
+            if autoSellTask then task.cancel(autoSellTask); autoSellTask = nil end
+            if Value then startAutoSell() end
+        end })
+        AutoGroup:Toggle({ Title = '自动移除垃圾', Value = getCfg("remls", false), Callback = function(s) remls = s; setCfg("remls", s) end })
+        AutoGroup:Toggle({ Title = '自动使用消耗品', Value = getCfg("autouse", false), Callback = function(s) autouse = s; setCfg("autouse", s) end })
+        AutoGroup:Toggle({ Title = '自动制作萝莉', Value = getCfg("craft", false), Callback = function(s) autoCraftEnabled = s; setCfg("craft", s) end })
+        AutoGroup:Toggle({ Title = '自动领取萝莉',  Value = getCfg("claim", false), Callback = function(s) autoClaimEnabled = s; setCfg("claim", s) end })
+        AutoGroup:Toggle({ Title = '自动存放珍贵宝石', Value = getCfg("storegems", false), Callback = function(s) autoStoreGems = s; setCfg("storegems", s) end })
+        AutoGroup:Toggle({ Title = '自动领取奖励', Value = getCfg("reward", false), Callback = function(s) setCfg("reward", s); if s then startAutoRewardLoop() else stopAutoRewardLoop() end end })
+
+        local FindGroup = Tabs.Money:Section({ Title = '寻找物品', Opened = true, Collapsible = true })
+        FindGroup:Toggle({ Title = '自动捡最稀有物品', Value = getCfg("rare", false), Callback = function(state)
+            getgenv().AutoPickVeryRare = state
+            setCfg("rare", state)
+            if not state then return end
+            task.spawn(function()
+                waitForUI()
+                local localPlayer = Players.LocalPlayer
+                local character = localPlayer.Character or localPlayer.CharacterAdded:Wait()
+                local rootPart = character:WaitForChild("HumanoidRootPart")
+                local targetItems = {
+                    "Dollar Balloon", "Heart Crossbow", "Void Gem", "Diamond",
+                    "Nuclear Missile Launcher", "NextBot Grenade", "Rollie",
+                    "Gold Crown", "Dark Matter Gem", "Diamond Glock",
+                    "Diamond Banana Peel", "Spirit Kunai", "Kunai",
+                    "Purple Lucky Block", "Snowflake Balloon", "Suitcase Nuke",
+                    "Nuke Launcher", "Easter Basket", "Gold Cup",
+                    "Pearl Necklace", "Treasure Map", "Spectral Scythe",
+                    "Bunny Balloon", "Ghost Balloon", "Clover Balloon",
+                    "Bat Balloon", "Gold Clover Balloon", "Golden Rose",
+                    "Black Rose", "Heart Balloon", "Skull Balloon",
+                    "Candy Cane", "Diamond Glock", "Nuke Case",
+                    "Pulse Rifle", "Trident", "El Fuego"
+                }
+                while getgenv().AutoPickVeryRare do
+                    task.wait(0.05)
+                    if not getgenv().AutoPickVeryRare then break end
+                    if not rootPart or not rootPart:IsDescendantOf(game) then
+                        character = localPlayer.Character or localPlayer.CharacterAdded:Wait()
+                        rootPart = character:WaitForChild("HumanoidRootPart")
+                    end
+                    local itemFolder = workspace:FindFirstChild("Game")
+                    if not itemFolder then continue end
+                    local entities = itemFolder:FindFirstChild("Entities")
+                    if not entities then continue end
+                    local itemPickup = entities:FindFirstChild("ItemPickup")
+                    if not itemPickup then continue end
+                    for _, l in pairs(itemPickup:GetChildren()) do
+                        if not getgenv().AutoPickVeryRare then break end
+                        for _, v in pairs(l:GetChildren()) do
+                            if v:IsA("MeshPart") or v:IsA("Part") then
+                                local prompt = v:FindFirstChildOfClass("ProximityPrompt")
+                                if prompt and table.find(targetItems, prompt.ObjectText) then
+                                    if getgenv().BlockRedCardRoom and (v.Position - getgenv().RedCardRoomPos).Magnitude <= getgenv().BlockRadius then continue end
+                                    rootPart.CFrame = v.CFrame + Vector3.new(0, 2, 0)
+                                    prompt.RequiresLineOfSight = false
+                                    prompt.HoldDuration = 0
+                                    task.wait(0.03)
+                                    if fireproximityprompt then fireproximityprompt(prompt) else firesignal(prompt.Triggered) end
+                                    break
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
+        end })
+        FindGroup:Toggle({ Title = '自动捡气球', Value = getCfg("balloon", false), Callback = function(state)
+            getgenv().AutoPickComponent = state
+            setCfg("balloon", state)
+            if not state then return end
+            task.spawn(function()
+                waitForUI()
+                local localPlayer = Players.LocalPlayer
+                local character = localPlayer.Character or localPlayer.CharacterAdded:Wait()
+                local rootPart = character:WaitForChild("HumanoidRootPart")
+                local targetItems = {
+                    "Bat Balloon", "Bunny Balloon", "Clover Balloon",
+                    "Ghost Balloon", "Gold Clover Balloon", "Heart Balloon",
+                    "Skull Balloon"
+                }
+                while getgenv().AutoPickComponent do
+                    task.wait(0.05)
+                    if not getgenv().AutoPickComponent then break end
+                    if not rootPart or not rootPart:IsDescendantOf(game) then
+                        character = localPlayer.Character or localPlayer.CharacterAdded:Wait()
+                        rootPart = character:WaitForChild("HumanoidRootPart")
+                    end
+                    local itemFolder = workspace:FindFirstChild("Game")
+                    if not itemFolder then continue end
+                    local entities = itemFolder:FindFirstChild("Entities")
+                    if not entities then continue end
+                    local itemPickup = entities:FindFirstChild("ItemPickup")
+                    if not itemPickup then continue end
+ 
